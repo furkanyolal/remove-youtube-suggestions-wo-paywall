@@ -32,11 +32,11 @@ This project is 100% open source. Created and maintained by me, [Lawrence Hook](
 
 Have a feature request or found a bug? Feel free to create a Github issue, submit a PR, or contact me at lawrencehook@gmail.com.
 
-The following commands will set up a Firefox dev environment.
-
 ```bash
 git clone https://github.com/lawrencehook/remove-youtube-suggestions.git
-cd remove-youtube-suggestions/src
+cd remove-youtube-suggestions
 npm install --global web-ext
-web-ext run
+
+./dev.sh firefox     # opens Firefox with the extension loaded
+./dev.sh chrome      # builds dist/chrome/ — load as unpacked in chrome://extensions
 ```
