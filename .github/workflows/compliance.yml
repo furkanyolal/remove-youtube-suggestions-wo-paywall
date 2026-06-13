@@ -1,0 +1,15 @@
+name: Compliance
+
+# Enforces the RYS Libre invariants on every push / PR: the MPL 2.0 obligations
+# stay met and the premium paywall stays removed. Fails the build if either
+# regresses (e.g. after a future merge/sync from upstream).
+
+on: [push, pull_request]
+
+jobs:
+  mpl-and-paywall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run compliance gate
+        run: bash scripts/check-compliance.sh

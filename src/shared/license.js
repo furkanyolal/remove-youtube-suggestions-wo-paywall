@@ -1,3 +1,10 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Modified by the RYS Libre fork to remove the upstream premium paywall.
+// This file remains licensed under the MPL 2.0.
+
 // License checking module for RYS Premium
 
 const License = {
@@ -16,6 +23,11 @@ const License = {
 
   // Check premium status from license token (fetches new token if needed)
   async checkLicense(forceRefresh = false) {
+    // Fork modification (RYS Libre): paywall removed. Always report premium and
+    // never contact the licensing server, so every feature is unlocked offline.
+    return { isPremium: true, source: null };
+
+    /* eslint-disable no-unreachable */
     const { STORAGE_KEYS, LICENSE_REFRESH_THRESHOLD_MS } = PREMIUM_CONFIG;
 
     const cached = await browser.storage.local.get([
@@ -111,16 +123,13 @@ const License = {
 
   // Synchronous check given a license token string
   isPremiumSync(token) {
-    const decoded = this._decodeToken(token);
-    if (!decoded) return false;
-    const now = Math.floor(Date.now() / 1000);
-    return decoded.premium === true && decoded.exp > now;
+    // Fork modification (RYS Libre): paywall removed — always premium.
+    return true;
   },
 
   getTierSync(licenseToken, sessionToken) {
-    if (this.isPremiumSync(licenseToken)) return TIER.PREMIUM;
-    if (sessionToken) return TIER.FREE_SIGNED_IN;
-    return TIER.FREE;
+    // Fork modification (RYS Libre): paywall removed — every user is PREMIUM.
+    return TIER.PREMIUM;
   },
 
   // Create checkout session for subscription

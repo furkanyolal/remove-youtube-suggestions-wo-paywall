@@ -1,3 +1,9 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Modified by the RYS Libre fork to remove the upstream premium paywall.
+// This file remains licensed under the MPL 2.0.
 
 // Some global constants.
 const HTML = document.documentElement;
@@ -73,9 +79,12 @@ function isPremiumFromToken(token) {
 }
 
 function getTier(licenseToken, sessionToken) {
-  if (isPremiumFromToken(licenseToken)) return TIER.PREMIUM;
-  if (sessionToken) return TIER.FREE_SIGNED_IN;
-  return TIER.FREE;
+  // Fork modification (RYS Libre): the upstream paywall is removed. Every user
+  // is treated as PREMIUM unconditionally, so all "premium" features stay on
+  // regardless of sign-in or license token. The slot-budget / clear-premium
+  // enforcement paths only fire for the FREE / FREE_SIGNED_IN tiers, so
+  // returning PREMIUM here bypasses all client-side gating.
+  return TIER.PREMIUM;
 }
 
 // Respond to changes in settings
