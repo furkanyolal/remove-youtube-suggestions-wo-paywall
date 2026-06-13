@@ -67,10 +67,14 @@ describe('License', () => {
     });
   });
 
-  describe('isPremium', () => {
-    it('should return false when no license token exists', async () => {
+  // Fork modification (RYS Libre): the paywall is removed, so premium status is
+  // unconditional. These tests assert the new free-fork contract — every user is
+  // premium regardless of token, sign-in, or expiry — rather than the upstream
+  // paid-gating behavior they replaced.
+  describe('isPremium (paywall removed)', () => {
+    it('should return true when no license token exists', async () => {
       const result = await context.License.isPremium();
-      assert.strictEqual(result, false);
+      assert.strictEqual(result, true);
     });
 
     it('should return true for valid premium token', async () => {
@@ -81,169 +85,62 @@ describe('License', () => {
       assert.strictEqual(result, true);
     });
 
-    it('should return false for non-premium token', async () => {
+    it('should return true even for a non-premium token', async () => {
       const token = createMockJWT({ email: 'test@example.com', premium: false });
       setStorageData({ license_token: token });
 
       const result = await context.License.isPremium();
-      assert.strictEqual(result, false);
+      assert.strictEqual(result, true);
     });
 
-    it('should return false for expired token', async () => {
+    it('should return true even for an expired token', async () => {
       const token = createMockJWT({ email: 'test@example.com', premium: true }, -3600); // expired 1hr ago
       setStorageData({ license_token: token });
 
       const result = await context.License.isPremium();
-      assert.strictEqual(result, false);
+      assert.strictEqual(result, true);
+    });
+
+    it('isPremiumSync should return true for any input', () => {
+      assert.strictEqual(context.License.isPremiumSync(null), true);
+      assert.strictEqual(context.License.isPremiumSync('garbage'), true);
+    });
+
+    it('getTierSync should always be the premium tier', () => {
+      assert.strictEqual(context.License.getTierSync(null, null), context.TIER.PREMIUM);
     });
   });
 
-  describe('checkLicense', () => {
-    it('should return not premium when not signed in', async () => {
+  // Fork modification (RYS Libre): checkLicense is short-circuited to always
+  // report premium and never touch the network, so the upstream caching / fetch
+  // / 401-signout / offline-fallback paths no longer apply.
+  describe('checkLicense (paywall removed)', () => {
+    it('should report premium without any network call when not signed in', async () => {
       const result = await context.License.checkLicense();
 
-      assert.strictEqual(result.isPremium, false);
+      assert.strictEqual(result.isPremium, true);
       assert.strictEqual(result.source, null);
-      assert.strictEqual(fetchCalls.length, 0); // No fetch call made
+      assert.strictEqual(fetchCalls.length, 0); // Never contacts the server
     });
 
-    it('should use cached token when valid and not expiring soon', async () => {
-      const token = createMockJWT({
-        email: 'test@example.com',
-        premium: true,
-        grandfathered: false,
-      }, 3 * 24 * 3600); // 3 days from now
-
-      setStorageData({
-        session_token: 'session-token',
-        license_token: token,
-      });
-
+    it('should report premium even with no stored tokens', async () => {
+      resetStorage();
       const result = await context.License.checkLicense();
 
       assert.strictEqual(result.isPremium, true);
-      assert.strictEqual(result.cached, true);
-      assert.strictEqual(fetchCalls.length, 0); // No fetch call made
+      assert.strictEqual(fetchCalls.length, 0);
     });
 
-    it('should fetch new token when license token is expiring soon', async () => {
-      const expiringToken = createMockJWT({
-        email: 'test@example.com',
-        premium: true,
-      }, 12 * 3600); // 12 hours from now (within 24hr threshold)
-
-      const newToken = createMockJWT({
-        email: 'test@example.com',
-        premium: true,
-        grandfathered: false,
-      }, 3 * 24 * 3600);
-
+    it('should never contact the server, even with forceRefresh', async () => {
       setStorageData({
         session_token: 'session-token',
-        license_token: expiringToken,
+        license_token: createMockJWT({ email: 'test@example.com', premium: false }, -3600),
       });
-
-      fetchResponse = {
-        ok: true,
-        status: 200,
-        json: async () => ({ license_token: newToken }),
-      };
-
-      const result = await context.License.checkLicense();
-
-      assert.strictEqual(result.isPremium, true);
-      assert.strictEqual(result.cached, undefined); // Not cached
-      assert.strictEqual(fetchCalls.length, 1);
-      assert.ok(fetchCalls[0].url.includes('/license/check'));
-    });
-
-    it('should fetch new token when forceRefresh is true', async () => {
-      const token = createMockJWT({
-        email: 'test@example.com',
-        premium: true,
-      }, 3 * 24 * 3600);
-
-      setStorageData({
-        session_token: 'session-token',
-        license_token: token,
-      });
-
-      fetchResponse = {
-        ok: true,
-        status: 200,
-        json: async () => ({ license_token: token }),
-      };
 
       const result = await context.License.checkLicense(true);
 
-      assert.strictEqual(fetchCalls.length, 1); // Force fetch even with valid token
-    });
-
-    it('should sign out on 401 response', async () => {
-      setStorageData({
-        session_token: 'expired-session',
-        license_token: createMockJWT({ email: 'test@example.com', premium: true }, -3600),
-      });
-
-      fetchResponse = {
-        ok: false,
-        status: 401,
-      };
-
-      const result = await context.License.checkLicense();
-
-      assert.strictEqual(result.isPremium, false);
-      assert.strictEqual(result.signedOut, true);
-    });
-
-    it('should use existing valid token on network error', async () => {
-      const token = createMockJWT({
-        email: 'test@example.com',
-        premium: true,
-        grandfathered: true,
-      }, 12 * 3600); // Within refresh threshold to trigger fetch
-
-      setStorageData({
-        session_token: 'session-token',
-        license_token: token,
-      });
-
-      // Simulate network error
-      context = loadSourceFiles(['shared/config.js', 'shared/license.js'], {
-        fetch: async () => { throw new Error('Network error'); },
-        Auth: { signOut: async () => {} },
-        recordEvent: () => {},
-      });
-
-      // Re-set storage since we reloaded context
-      setStorageData({
-        session_token: 'session-token',
-        license_token: token,
-      });
-
-      const result = await context.License.checkLicense();
-
       assert.strictEqual(result.isPremium, true);
-      assert.strictEqual(result.offline, true);
-      assert.strictEqual(result.source, 'grandfathered');
-    });
-
-    it('should return grandfathered source for grandfathered users', async () => {
-      const token = createMockJWT({
-        email: 'donor@example.com',
-        premium: true,
-        grandfathered: true,
-      }, 3 * 24 * 3600);
-
-      setStorageData({
-        session_token: 'session-token',
-        license_token: token,
-      });
-
-      const result = await context.License.checkLicense();
-
-      assert.strictEqual(result.isPremium, true);
-      assert.strictEqual(result.source, 'grandfathered');
+      assert.strictEqual(fetchCalls.length, 0); // No fetch even when forced
     });
   });
 });

@@ -3,11 +3,13 @@ if (typeof browser === 'undefined') {
   browser = typeof chrome !== 'undefined' ? chrome : null;
 }
 
-const uninstallUrl = "http://lawrencehook.com/rys/👋";
+// Fork modification (RYS Libre): install/uninstall pages point at this fork,
+// not the original author's site, to avoid implying any affiliation.
+const uninstallUrl = "https://github.com/furkanyolal/remove-youtube-suggestions-wo-paywall";
 browser.runtime.setUninstallURL(uninstallUrl);
 
 browser.runtime.onInstalled.addListener(async object => {
-  const url = "http://lawrencehook.com/rys/welcome";
+  const url = "https://github.com/furkanyolal/remove-youtube-suggestions-wo-paywall#readme";
   if (object.reason !== browser.runtime.OnInstalledReason.INSTALL) return;
   // management.getSelf() returns a Promise in both Chrome MV3 and Firefox
   // (Firefox ignores callbacks), so use await for cross-browser consistency.
